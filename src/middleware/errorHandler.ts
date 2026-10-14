@@ -10,25 +10,32 @@ function isErrorFields(err: unknown): err is ErrorFields {
   return typeof err === 'object' && err !== null;
 }
 
-function isFalsyStatus(value: unknown): boolean {
-  return (
-    value === undefined ||
-    value === null ||
-    value === false ||
-    value === 0 ||
-    value === '' ||
-    (typeof value === 'number' && Number.isNaN(value))
-  );
+function isHttpErrorStatus(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 400 && value <= 599;
 }
 
-function resolveStatus(err: ErrorFields): number {
-  const candidate = isFalsyStatus(err.statusCode) ? err.status : err.statusCode;
-
-  if (typeof candidate !== 'number' && typeof candidate !== 'string') {
+function resolveStatus(err: unknown): number {
+  if (!isErrorFields(err)) {
     return 500;
   }
 
-  return Number(candidate) || 500;
+  if (isHttpErrorStatus(err.statusCode)) {
+    return err.statusCode;
+  }
+
+  if (isHttpErrorStatus(err.status)) {
+    return err.status;
+  }
+
+  return 500;
+}
+
+function clientErrorMessage(err: unknown): string {
+  if (isErrorFields(err) && typeof err.message === 'string') {
+    return err.message;
+  }
+
+  return 'Request failed';
 }
 
 export const errorHandler: ErrorRequestHandler = (
@@ -42,13 +49,13 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  const status = isErrorFields(err) ? resolveStatus(err) : 500;
-  const message =
-    status === 500
-      ? 'Internal server error'
-      : isErrorFields(err) && typeof err.message === 'string'
-        ? err.message
-        : undefined;
+  const status = resolveStatus(err);
 
-  res.status(status).json({ error: message });
+  if (status >= 500) {
+    console.error(err);
+    res.status(status).json({ error: 'Internal server error' });
+    return;
+  }
+
+  res.status(status).json({ error: clientErrorMessage(err) });
 };
