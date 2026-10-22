@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:18
+    # Local development only. These credentials must never be used elsewhere.
+    environment:
+      POSTGRES_USER: chargewatch
+      POSTGRES_PASSWORD: chargewatch_dev
+      POSTGRES_DB: chargewatch
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # postgres:18 declares its volume at /var/lib/postgresql.
+      # The cluster lives in /var/lib/postgresql/18/docker inside that mount.
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "chargewatch", "-d", "chargewatch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
