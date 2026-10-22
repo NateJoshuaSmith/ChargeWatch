@@ -13,7 +13,7 @@ services:
       # The cluster lives in /var/lib/postgresql/18/docker inside that mount.
       - db_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "chargewatch", "-d", "chargewatch"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "chargewatch", "-d", "chargewatch"]
       interval: 10s
       timeout: 5s
       retries: 5
