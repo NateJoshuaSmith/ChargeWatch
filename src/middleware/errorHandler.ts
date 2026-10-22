@@ -1,4 +1,9 @@
-import type { ErrorRequestHandler, NextFunction, Request, Response } from 'express';
+import type {
+  ErrorRequestHandler,
+  NextFunction,
+  Request,
+  Response,
+} from "express";
 
 type ErrorFields = {
   status?: unknown;
@@ -7,11 +12,16 @@ type ErrorFields = {
 };
 
 function isErrorFields(err: unknown): err is ErrorFields {
-  return typeof err === 'object' && err !== null;
+  return typeof err === "object" && err !== null;
 }
 
 function isHttpErrorStatus(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 400 && value <= 599;
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 400 &&
+    value <= 599
+  );
 }
 
 function resolveStatus(err: unknown): number {
@@ -31,11 +41,11 @@ function resolveStatus(err: unknown): number {
 }
 
 function clientErrorMessage(err: unknown): string {
-  if (isErrorFields(err) && typeof err.message === 'string') {
+  if (isErrorFields(err) && typeof err.message === "string") {
     return err.message;
   }
 
-  return 'Request failed';
+  return "Request failed";
 }
 
 export const errorHandler: ErrorRequestHandler = (
@@ -53,7 +63,7 @@ export const errorHandler: ErrorRequestHandler = (
 
   if (status >= 500) {
     console.error(err);
-    res.status(status).json({ error: 'Internal server error' });
+    res.status(status).json({ error: "Internal server error" });
     return;
   }
 
