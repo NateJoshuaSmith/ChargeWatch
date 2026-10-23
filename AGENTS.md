@@ -27,3 +27,4 @@ ChargeWatch is a subscription tracker API built with Node.js, Express 5, and Typ
 - Only change what the task asks for. Don't refactor unrelated code.
 - Don't add dependencies without saying which one and why.
 - Before finishing, run `npm run typecheck` and `npm run lint`, and fix all errors.
+- Never run git commands that change history or the remote: no commit, push, merge, rebase, or reset. The owner reviews and commits all changes.
