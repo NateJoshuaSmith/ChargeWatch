@@ -13,6 +13,7 @@ ChargeWatch is a subscription tracker API built with Node.js, Express 5, and Typ
 - Routes map URLs to controller functions and contain no logic.
 - Controllers handle HTTP only: read the request, call a service, send the response.
 - Services hold business logic and all calls to the database and external APIs. They never touch `req` or `res`.
+- Only services import the Prisma client from `src/db/prisma.ts`.
 - Middleware lives in `src/middleware/`.
 
 ## Errors and config
