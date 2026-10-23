@@ -18,3 +18,17 @@ npm run dev
 ```json
 { "status": "ok" }
 ```
+
+## Local database
+
+PostgreSQL for local development. Start it in the background:
+
+```bash
+docker compose up -d
+```
+
+`docker compose ps` shows whether the database is running.
+
+`docker compose down` stops the database and removes the container. Your data stays in the volume.
+
+`docker compose down -v` deletes all local data.
