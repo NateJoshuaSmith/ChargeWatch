@@ -32,3 +32,7 @@ docker compose up -d
 `docker compose down` stops the database and removes the container. Your data stays in the volume.
 
 `docker compose down -v` deletes all local data.
+
+## CI
+
+GitHub Actions runs the CI workflow on pull requests to `main` and on pushes to `main`. It checks lint, types, formatting, and that the project builds. A new commit on the same branch cancels the run already in progress.
