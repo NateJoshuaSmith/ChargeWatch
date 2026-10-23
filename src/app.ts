@@ -10,4 +10,6 @@ app.use("/health", healthRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
+const test: any = 1;
+
 export default app;
