@@ -13,14 +13,15 @@ ChargeWatch is a subscription tracker API built with Node.js, Express 5, and Typ
 - Routes map URLs to controller functions and contain no logic.
 - Controllers handle HTTP only: read the request, call a service, send the response.
 - Services hold business logic and all calls to the database and external APIs. They never touch `req` or `res`.
+- Only services import the Prisma client from `src/db/prisma.ts`.
 - Middleware lives in `src/middleware/`.
 
 ## Errors and config
 
 - Express 5 forwards errors from async handlers automatically. Don't wrap handlers in try/catch just to call `next(err)`.
 - All errors go through `src/middleware/errorHandler.ts`. Never send stack traces or internal details to clients.
-- Read environment variables only in `src/config/env.ts`, validated at startup. Other files import from config, never from `process.env`.
 - Never commit secrets. Add new variables to `.env.example` without real values.
+- App code reads environment variables only through `src/config/env.ts`, validated at startup. Tool config files like `prisma7.config.ts` may read `process.env` directly.
 
 ## Working rules
 
