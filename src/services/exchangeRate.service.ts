@@ -22,6 +22,15 @@ export class ExchangeRateUnavailableError extends Error {
   }
 }
 
+export class UnknownCurrencyError extends Error {
+  readonly statusCode = 400;
+
+  constructor() {
+    super("Unknown currency code.");
+    this.name = "UnknownCurrencyError";
+  }
+}
+
 type RateQuery = {
   base: string;
   symbols: string[];
@@ -52,6 +61,10 @@ export async function getLatestExchangeRates(
     });
   } catch (error: unknown) {
     throw new ExchangeRateUnavailableError(error);
+  }
+
+  if (response.status === 422) {
+    throw new UnknownCurrencyError();
   }
 
   if (!response.ok) {
