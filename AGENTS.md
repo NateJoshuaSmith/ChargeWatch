@@ -14,6 +14,7 @@ ChargeWatch is a subscription tracker API built with Node.js, Express 5, and Typ
 - Controllers handle HTTP only: read the request, call a service, send the response.
 - Services hold business logic and all calls to the database and external APIs. They never touch `req` or `res`.
 - Only services import the Prisma client from `src/db/prisma.ts`.
+- Money is stored in integer cents with a currency code.
 - Middleware lives in `src/middleware/`.
 
 ## Errors and config
@@ -29,3 +30,4 @@ ChargeWatch is a subscription tracker API built with Node.js, Express 5, and Typ
 - Don't add dependencies without saying which one and why.
 - Before finishing, run `npm run typecheck` and `npm run lint`, and fix all errors.
 - Never run git commands that change history or the remote: no commit, push, merge, rebase, or reset. The owner reviews and commits all changes.
+- Never run destructive commands without asking first: no `prisma migrate reset`, `docker compose down -v`, dropping tables, or deleting files outside the task. If Prisma asks to reset the database, stop and ask the owner.
