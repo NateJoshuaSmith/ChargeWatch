@@ -63,6 +63,16 @@ export const errorHandler: ErrorRequestHandler = (
 
   if (status >= 500) {
     console.error(err);
+
+    if (
+      status === 502 &&
+      isErrorFields(err) &&
+      typeof err.message === "string"
+    ) {
+      res.status(status).json({ error: err.message });
+      return;
+    }
+
     res.status(status).json({ error: "Internal server error" });
     return;
   }

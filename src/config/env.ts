@@ -5,6 +5,7 @@ dotenv.config({ quiet: true });
 const DEFAULT_PORT = 3000;
 const MIN_PORT = 1;
 const MAX_PORT = 65535;
+const DEFAULT_FRANKFURTER_BASE_URL = "https://api.frankfurter.dev";
 
 function parsePort(rawPort: string | undefined): number {
   if (rawPort === undefined || rawPort.trim() === "") {
@@ -40,5 +41,33 @@ function parseDatabaseUrl(rawUrl: string | undefined): string {
   return rawUrl.trim();
 }
 
+function parseFrankfurterBaseUrl(rawUrl: string | undefined): string {
+  if (rawUrl === undefined || rawUrl.trim() === "") {
+    return DEFAULT_FRANKFURTER_BASE_URL;
+  }
+
+  const trimmed = rawUrl.trim().replace(/\/+$/, "");
+  let parsed: URL;
+
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(
+      `Invalid FRANKFURTER_BASE_URL "${rawUrl}". It must be an http or https URL.`,
+    );
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      `Invalid FRANKFURTER_BASE_URL "${rawUrl}". It must be an http or https URL.`,
+    );
+  }
+
+  return trimmed;
+}
+
 export const port = parsePort(process.env.PORT);
 export const databaseUrl = parseDatabaseUrl(process.env.DATABASE_URL);
+export const frankfurterBaseUrl = parseFrankfurterBaseUrl(
+  process.env.FRANKFURTER_BASE_URL,
+);
