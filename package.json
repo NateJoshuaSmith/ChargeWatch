@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
     "db:check": "tsx src/scripts/db-check.ts",
+    "db:seed": "prisma db seed",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
