@@ -30,4 +30,15 @@ function parsePort(rawPort: string | undefined): number {
   return port;
 }
 
+function parseDatabaseUrl(rawUrl: string | undefined): string {
+  if (rawUrl === undefined || rawUrl.trim() === "") {
+    throw new Error(
+      "Invalid DATABASE_URL. DATABASE_URL must be a non-empty Postgres connection string.",
+    );
+  }
+
+  return rawUrl.trim();
+}
+
 export const port = parsePort(process.env.PORT);
+export const databaseUrl = parseDatabaseUrl(process.env.DATABASE_URL);
