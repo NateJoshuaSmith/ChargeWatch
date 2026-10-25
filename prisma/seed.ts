@@ -96,10 +96,7 @@ const subscriptionsByEmail: Record<string, SeedSubscription[]> = {
 async function seedUser(user: SeedUser): Promise<string> {
   const saved = await prisma.user.upsert({
     where: { email: user.email },
-    update: {
-      passwordHash: PASSWORD_HASH,
-      role: user.role,
-    },
+    update: {},
     create: {
       email: user.email,
       passwordHash: PASSWORD_HASH,
