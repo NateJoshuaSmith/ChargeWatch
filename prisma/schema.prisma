@@ -30,14 +30,42 @@ enum SubscriptionStatus {
   @@map("subscription_status")
 }
 
+enum HouseholdRole {
+  OWNER
+  MEMBER
+
+  @@map("household_role")
+}
+
+enum SubscriptionSource {
+  MANUAL
+  PLAID
+
+  @@map("subscription_source")
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+
+  @@map("reminder_status")
+}
+
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  role          Role           @default(USER)
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  subscriptions Subscription[]
+  id                 String         @id @default(uuid()) @db.Uuid
+  email              String         @unique
+  passwordHash       String         @map("password_hash")
+  role               Role           @default(USER)
+  homeCurrency       String         @default("USD") @db.Char(3) @map("home_currency")
+  reminderDaysBefore Int            @default(3) @map("reminder_days_before")
+  /// E.164 phone number. Used later for reminders.
+  phoneNumber        String?        @map("phone_number")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  subscriptions      Subscription[]
+  memberships        Membership[]
+  plaidItems         PlaidItem[]
 
   @@map("users")
 }
@@ -46,6 +74,8 @@ model Subscription {
   id              String             @id @default(uuid()) @db.Uuid
   userId          String             @map("user_id") @db.Uuid
   user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId     String?            @map("household_id") @db.Uuid
+  household       Household?         @relation(fields: [householdId], references: [id], onDelete: SetNull)
   name            String
   amountCents     Int                @map("amount_cents")
   currency        String             @default("USD") @db.Char(3)
@@ -53,9 +83,100 @@ model Subscription {
   nextRenewalDate DateTime           @map("next_renewal_date") @db.Date
   category        String?
   status          SubscriptionStatus @default(ACTIVE)
+  source          SubscriptionSource @default(MANUAL)
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
+  reminders       Reminder[]
 
   @@index([userId])
+  @@index([householdId])
   @@map("subscriptions")
+}
+
+model Household {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  inviteCode    String         @unique @map("invite_code")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  memberships   Membership[]
+  subscriptions Subscription[]
+
+  @@map("households")
+}
+
+model Membership {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId String        @map("household_id") @db.Uuid
+  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  role        HouseholdRole @default(MEMBER)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@unique([userId, householdId])
+  @@index([householdId])
+  @@map("memberships")
+}
+
+model PlaidItem {
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plaidItemId          String    @unique @map("plaid_item_id")
+  accessTokenEncrypted String    @map("access_token_encrypted")
+  institutionName      String?   @map("institution_name")
+  cursor               String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  accounts             Account[]
+
+  @@index([userId])
+  @@map("plaid_items")
+}
+
+model Account {
+  id             String    @id @default(uuid()) @db.Uuid
+  plaidItemId    String    @map("plaid_item_id") @db.Uuid
+  plaidItem      PlaidItem @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+  plaidAccountId String    @unique @map("plaid_account_id")
+  name           String
+  mask           String?
+  type           String
+  currency       String    @db.Char(3)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([plaidItemId])
+  @@map("accounts")
+}
+
+model Reminder {
+  id             String         @id @default(uuid()) @db.Uuid
+  subscriptionId String         @map("subscription_id") @db.Uuid
+  subscription   Subscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  renewalDate    DateTime       @map("renewal_date") @db.Date
+  status         ReminderStatus @default(PENDING)
+  channel        String?
+  sentAt         DateTime?      @map("sent_at")
+  error          String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@unique([subscriptionId, renewalDate])
+  @@map("reminders")
+}
+
+model ExchangeRate {
+  id        String   @id @default(uuid()) @db.Uuid
+  base      String   @db.Char(3)
+  quote     String   @db.Char(3)
+  rate      Decimal  @db.Decimal(18, 8)
+  date      DateTime @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([base, quote, date])
+  @@map("exchange_rates")
 }
