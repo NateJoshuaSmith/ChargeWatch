@@ -44,10 +44,11 @@ function readPassword(value: unknown): string {
   if (
     typeof value !== "string" ||
     value.length < MIN_PASSWORD_LENGTH ||
-    value.length > MAX_PASSWORD_LENGTH
+    // bcrypt only uses the first 72 bytes, so the maximum is checked in bytes.
+    Buffer.byteLength(value, "utf8") > MAX_PASSWORD_LENGTH
   ) {
     throw badRequest(
-      `password must be a string of ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters.`,
+      `password must be at least ${MIN_PASSWORD_LENGTH} characters and at most ${MAX_PASSWORD_LENGTH} bytes.`,
     );
   }
 
