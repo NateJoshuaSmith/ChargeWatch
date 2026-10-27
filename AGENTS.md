@@ -28,6 +28,18 @@ ChargeWatch is a subscription tracker API built with Node.js, Express 5, and Typ
 
 - Only change what the task asks for. Don't refactor unrelated code.
 - Don't add dependencies without saying which one and why.
-- Before finishing, run `npm run typecheck` and `npm run lint`, and fix all errors.
 - Never run git commands that change history or the remote: no commit, push, merge, rebase, or reset. The owner reviews and commits all changes.
 - Never run destructive commands without asking first: no `prisma migrate reset`, `docker compose down -v`, dropping tables, or deleting files outside the task. If Prisma asks to reset the database, stop and ask the owner.
+
+## Database
+
+- Prisma schema style: uuid ids (`@default(uuid()) @db.Uuid`), camelCase fields with snake_case `@map`, plural snake_case table names with `@@map`, `createdAt`/`updatedAt` on every model, enums mapped to snake_case.
+- Currency codes are `String @db.Char(3)`. Exchange rates use `Decimal`, never `Float`.
+- Change the schema only through a new migration: `npx prisma migrate dev --name <what_changed>`. Never edit a migration that has already been applied.
+- Enforce rules like "no duplicates" with database constraints (`@unique`, `@@unique`), not only with checks in code.
+- The seed script must be safe to run more than once.
+
+## Finishing a task
+
+- Run `npm run typecheck`, `npm run lint`, and `npm run format:check`, and fix all errors.
+- End with a short summary for the owner: files changed, what each change does, and any design decision they should be able to explain.

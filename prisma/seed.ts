@@ -3,11 +3,14 @@ import { databaseUrl } from "../src/config/env.js";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import {
   BillingCycle,
+  HouseholdRole,
   Role,
   SubscriptionStatus,
 } from "../src/generated/prisma/enums.js";
 
 const PASSWORD_HASH = "seed-placeholder-not-a-real-hash";
+const HOUSEHOLD_NAME = "Smith Household";
+const HOUSEHOLD_INVITE_CODE = "SEED-HOUSE";
 
 const adapter = new PrismaPg({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter });
@@ -141,9 +144,40 @@ async function seedSubscription(
   });
 }
 
+async function seedMembership(
+  userId: string,
+  householdId: string,
+  role: HouseholdRole,
+): Promise<void> {
+  await prisma.membership.upsert({
+    where: {
+      userId_householdId: { userId, householdId },
+    },
+    update: {},
+    create: { userId, householdId, role },
+  });
+}
+
+async function seedHousehold(adminId: string, memberId: string): Promise<void> {
+  const household = await prisma.household.upsert({
+    where: { inviteCode: HOUSEHOLD_INVITE_CODE },
+    update: {},
+    create: {
+      name: HOUSEHOLD_NAME,
+      inviteCode: HOUSEHOLD_INVITE_CODE,
+    },
+  });
+
+  await seedMembership(adminId, household.id, HouseholdRole.OWNER);
+  await seedMembership(memberId, household.id, HouseholdRole.MEMBER);
+}
+
 async function main(): Promise<void> {
+  const userIds = new Map<string, string>();
+
   for (const user of users) {
     const userId = await seedUser(user);
+    userIds.set(user.email, userId);
     const subscriptions = subscriptionsByEmail[user.email] ?? [];
 
     for (const subscription of subscriptions) {
@@ -151,7 +185,15 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log("Seeded 2 users and 6 subscriptions.");
+  const adminId = userIds.get("admin@example.com");
+  const memberId = userIds.get("user@example.com");
+  if (adminId === undefined || memberId === undefined) {
+    throw new Error("Seed users were not created.");
+  }
+
+  await seedHousehold(adminId, memberId);
+
+  console.log("Seeded 2 users, 6 subscriptions, and 1 household.");
 }
 
 main()
