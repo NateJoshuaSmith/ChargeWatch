@@ -5,6 +5,7 @@ dotenv.config({ quiet: true });
 const DEFAULT_PORT = 3000;
 const MIN_PORT = 1;
 const MAX_PORT = 65535;
+const MIN_JWT_SECRET_LENGTH = 32;
 const DEFAULT_FRANKFURTER_BASE_URL = "https://api.frankfurter.dev";
 
 function parsePort(rawPort: string | undefined): number {
@@ -66,8 +67,27 @@ function parseFrankfurterBaseUrl(rawUrl: string | undefined): string {
   return trimmed;
 }
 
+function parseJwtSecret(rawSecret: string | undefined): string {
+  if (rawSecret === undefined || rawSecret.trim() === "") {
+    throw new Error(
+      "Invalid JWT_SECRET. JWT_SECRET is required and must be at least 32 characters.",
+    );
+  }
+
+  const trimmed = rawSecret.trim();
+
+  if (trimmed.length < MIN_JWT_SECRET_LENGTH) {
+    throw new Error(
+      `Invalid JWT_SECRET. JWT_SECRET must be at least ${MIN_JWT_SECRET_LENGTH} characters.`,
+    );
+  }
+
+  return trimmed;
+}
+
 export const port = parsePort(process.env.PORT);
 export const databaseUrl = parseDatabaseUrl(process.env.DATABASE_URL);
+export const jwtSecret = parseJwtSecret(process.env.JWT_SECRET);
 export const frankfurterBaseUrl = parseFrankfurterBaseUrl(
   process.env.FRANKFURTER_BASE_URL,
 );
