@@ -1,4 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
 import { databaseUrl } from "../src/config/env.js";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import {
@@ -8,7 +9,10 @@ import {
   SubscriptionStatus,
 } from "../src/generated/prisma/enums.js";
 
-const PASSWORD_HASH = "seed-placeholder-not-a-real-hash";
+// Local development only.
+const SEED_PASSWORD = "chargewatch-dev-password";
+// Must match BCRYPT_COST in src/services/auth.service.ts.
+const BCRYPT_COST = 12;
 const HOUSEHOLD_NAME = "Smith Household";
 const HOUSEHOLD_INVITE_CODE = "SEED-HOUSE";
 
@@ -96,13 +100,13 @@ const subscriptionsByEmail: Record<string, SeedSubscription[]> = {
   ],
 };
 
-async function seedUser(user: SeedUser): Promise<string> {
+async function seedUser(user: SeedUser, passwordHash: string): Promise<string> {
   const saved = await prisma.user.upsert({
     where: { email: user.email },
-    update: {},
+    update: { passwordHash },
     create: {
       email: user.email,
-      passwordHash: PASSWORD_HASH,
+      passwordHash,
       role: user.role,
     },
   });
@@ -173,10 +177,11 @@ async function seedHousehold(adminId: string, memberId: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const passwordHash = await bcrypt.hash(SEED_PASSWORD, BCRYPT_COST);
   const userIds = new Map<string, string>();
 
   for (const user of users) {
-    const userId = await seedUser(user);
+    const userId = await seedUser(user, passwordHash);
     userIds.set(user.email, userId);
     const subscriptions = subscriptionsByEmail[user.email] ?? [];
 

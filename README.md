@@ -33,6 +33,15 @@ docker compose up -d
 
 `docker compose down -v` deletes all local data.
 
+## Seed accounts (local only)
+
+`npm run db:seed` creates two accounts you can log in with locally:
+
+- `admin@example.com` — `chargewatch-dev-password`
+- `user@example.com` — `chargewatch-dev-password`
+
+The seed must never be run against a deployed database.
+
 ## CI
 
 GitHub Actions runs the CI workflow on pull requests to `main` and on pushes to `main`. It checks lint, types, formatting, and that the project builds. A new commit on the same branch cancels the run already in progress.
