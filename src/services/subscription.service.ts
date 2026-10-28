@@ -168,9 +168,11 @@ export async function getSubscriptionSummary(
     }),
   ]);
 
+  const byCategory = buildCategoryTotals(rows);
+
   return {
-    monthlyTotals: buildMonthlyTotals(rows),
-    byCategory: buildCategoryTotals(rows),
+    monthlyTotals: buildMonthlyTotals(byCategory),
+    byCategory,
     upcomingRenewals: upcoming.map((row) => ({
       id: row.id,
       name: row.name,
@@ -304,19 +306,20 @@ function toUpdateData(
   return data;
 }
 
-function buildMonthlyTotals(rows: AmountRow[]): MonthlyTotal[] {
-  const yearlyByCurrency = new Map<string, number>();
+// The total is the sum of the rounded category amounts, so they always add up.
+function buildMonthlyTotals(categories: CategoryTotal[]): MonthlyTotal[] {
+  const centsByCurrency = new Map<string, number>();
 
-  for (const row of rows) {
-    const current = yearlyByCurrency.get(row.currency) ?? 0;
-    yearlyByCurrency.set(row.currency, current + yearlyCents(row));
+  for (const category of categories) {
+    const current = centsByCurrency.get(category.currency) ?? 0;
+    centsByCurrency.set(
+      category.currency,
+      current + category.monthlyAmountCents,
+    );
   }
 
-  return [...yearlyByCurrency.entries()]
-    .map(([currency, totalYearlyCents]) => ({
-      currency,
-      amountCents: monthlyAmountCents(totalYearlyCents),
-    }))
+  return [...centsByCurrency.entries()]
+    .map(([currency, amountCents]) => ({ currency, amountCents }))
     .sort((left, right) => compareCurrency(left.currency, right.currency));
 }
 
