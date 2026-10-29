@@ -45,3 +45,33 @@ The seed must never be run against a deployed database.
 ## CI
 
 GitHub Actions runs the CI workflow on pull requests to `main` and on pushes to `main`. It checks lint, types, formatting, and that the project builds. A new commit on the same branch cancels the run already in progress.
+
+## Deploy (Render)
+
+Build command:
+
+```bash
+npm ci --include=dev && npm run build && npx prisma migrate deploy
+```
+
+`--include=dev` installs prisma and typescript, which the build needs even if `NODE_ENV` is production.
+
+`postinstall` runs `prisma generate`.
+
+`migrate deploy` applies only the committed migrations and never resets data.
+
+Start command: `npm start`
+
+Health check path: `/health`
+
+Environment variables:
+
+- `DATABASE_URL`: the production Postgres connection string
+- `JWT_SECRET`: a new random value of at least 32 characters, never the local one
+- `FRANKFURTER_BASE_URL`: optional
+
+Render sets `PORT` itself. `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` are for local Docker only.
+
+The free plan sleeps after 15 minutes idle, so the first request can take about a minute.
+
+Don't seed production. The seed accounts are for local use only.
