@@ -2,11 +2,11 @@ import { frankfurterBaseUrl } from "../config/env.js";
 
 const REQUEST_TIMEOUT_MS = 5000;
 const CURRENCY_CODE = /^[A-Za-z]{3}$/;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export type ExchangeRates = {
   base: string;
-  date: string;
-  rates: Record<string, number>;
+  rates: Record<string, { rate: number; date: string }>;
   source: "frankfurter";
 };
 
@@ -122,13 +122,14 @@ function parseRate(value: unknown): FrankfurterRate | undefined {
 
   if (
     typeof date !== "string" ||
-    date === "" ||
+    !DATE_ONLY.test(date) ||
     typeof base !== "string" ||
     !CURRENCY_CODE.test(base) ||
     typeof quote !== "string" ||
     !CURRENCY_CODE.test(quote) ||
     typeof rate !== "number" ||
-    !Number.isFinite(rate)
+    !Number.isFinite(rate) ||
+    rate <= 0
   ) {
     return undefined;
   }
@@ -142,19 +143,14 @@ function parseRate(value: unknown): FrankfurterRate | undefined {
 }
 
 function toExchangeRates(base: string, rows: FrankfurterRate[]): ExchangeRates {
-  let date = rows[0]?.date ?? "";
-  const rates: Record<string, number> = {};
+  const rates: Record<string, { rate: number; date: string }> = {};
 
   for (const row of rows) {
-    if (row.date > date) {
-      date = row.date;
-    }
-    rates[row.quote] = row.rate;
+    rates[row.quote] = { rate: row.rate, date: row.date };
   }
 
   return {
     base,
-    date,
     rates,
     source: "frankfurter",
   };
