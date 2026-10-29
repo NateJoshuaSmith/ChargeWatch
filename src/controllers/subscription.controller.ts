@@ -9,6 +9,8 @@ import * as subscriptions from "../services/subscription.service.js";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const CURRENCY_CODE = /^[A-Za-z]{3}$/;
+// ISO 4217 codes built into Node, so the check needs no network call.
+const SUPPORTED_CURRENCIES = new Set(Intl.supportedValuesOf("currency"));
 
 const MIN_NAME_LENGTH = 1;
 const MAX_NAME_LENGTH = 100;
@@ -202,10 +204,19 @@ function readAmountCents(value: unknown): number {
 
 function readCurrency(value: unknown): string {
   if (typeof value !== "string" || !CURRENCY_CODE.test(value)) {
-    throw badRequest("currency must be a 3-letter code.");
+    throw badRequest(
+      "currency must be a supported 3-letter code, like USD or EUR.",
+    );
   }
 
-  return value.toUpperCase();
+  const currency = value.toUpperCase();
+  if (!SUPPORTED_CURRENCIES.has(currency)) {
+    throw badRequest(
+      "currency must be a supported 3-letter code, like USD or EUR.",
+    );
+  }
+
+  return currency;
 }
 
 function readBillingCycle(value: unknown): BillingCycle {
