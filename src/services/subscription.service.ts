@@ -5,8 +5,14 @@ import {
   SubscriptionSource,
   SubscriptionStatus,
 } from "../generated/prisma/enums.js";
+import { getUserById } from "./auth.service.js";
+import {
+  ExchangeRateUnavailableError,
+  getConversionRates,
+  type ConversionRate,
+} from "./exchangeRate.service.js";
 
-// Yearly cents are summed per group, then divided by 12 and rounded once.
+// Amounts are converted to the home currency, summed per category, then divided by 12 and rounded once.
 const PAYMENTS_PER_YEAR: Record<BillingCycle, number> = {
   WEEKLY: 52,
   MONTHLY: 12,
@@ -70,20 +76,22 @@ export type UpdateSubscriptionInput = {
 };
 
 export type SubscriptionSummary = {
-  monthlyTotals: MonthlyTotal[];
+  homeCurrency: string;
+  monthlyTotalCents: number;
   byCategory: CategoryTotal[];
+  exchangeRates: Record<string, UsedExchangeRate>;
   upcomingRenewals: UpcomingRenewal[];
-};
-
-type MonthlyTotal = {
-  currency: string;
-  amountCents: number;
 };
 
 type CategoryTotal = {
   category: string;
-  currency: string;
   monthlyAmountCents: number;
+};
+
+type UsedExchangeRate = {
+  rate: string;
+  date: string;
+  source: "live" | "cache";
 };
 
 type UpcomingRenewal = {
@@ -142,7 +150,8 @@ export async function getSubscriptionSummary(
   const window = utcRenewalWindow(new Date());
   const counted = { userId, status: { in: COUNTED_STATUSES } };
 
-  const [rows, upcoming] = await Promise.all([
+  const [user, rows, upcoming] = await Promise.all([
+    getUserById(userId),
     prisma.subscription.findMany({
       where: counted,
       select: {
@@ -168,11 +177,16 @@ export async function getSubscriptionSummary(
     }),
   ]);
 
-  const byCategory = buildCategoryTotals(rows);
+  const homeCurrency = user.homeCurrency;
+  const quotes = quotesToConvert(rows, homeCurrency);
+  const rates = await getConversionRates(homeCurrency, quotes);
+  const byCategory = buildCategoryTotals(rows, homeCurrency, rates);
 
   return {
-    monthlyTotals: buildMonthlyTotals(byCategory),
+    homeCurrency,
+    monthlyTotalCents: buildMonthlyTotal(byCategory),
     byCategory,
+    exchangeRates: usedExchangeRates(quotes, rates),
     upcomingRenewals: upcoming.map((row) => ({
       id: row.id,
       name: row.name,
@@ -307,65 +321,98 @@ function toUpdateData(
 }
 
 // The total is the sum of the rounded category amounts, so they always add up.
-function buildMonthlyTotals(categories: CategoryTotal[]): MonthlyTotal[] {
-  const centsByCurrency = new Map<string, number>();
-
+function buildMonthlyTotal(categories: CategoryTotal[]): number {
+  let total = 0;
   for (const category of categories) {
-    const current = centsByCurrency.get(category.currency) ?? 0;
-    centsByCurrency.set(
-      category.currency,
-      current + category.monthlyAmountCents,
-    );
+    total += category.monthlyAmountCents;
   }
-
-  return [...centsByCurrency.entries()]
-    .map(([currency, amountCents]) => ({ currency, amountCents }))
-    .sort((left, right) => compareCurrency(left.currency, right.currency));
+  return total;
 }
 
-function buildCategoryTotals(rows: AmountRow[]): CategoryTotal[] {
-  const yearlyByCategory = new Map<
-    string,
-    { category: string; currency: string; totalYearlyCents: number }
-  >();
+function buildCategoryTotals(
+  rows: AmountRow[],
+  homeCurrency: string,
+  rates: Map<string, ConversionRate>,
+): CategoryTotal[] {
+  const yearlyByCategory = new Map<string, Prisma.Decimal>();
 
   for (const row of rows) {
     const category = row.category ?? UNCATEGORIZED;
-    // Currency is always 3 characters, so the key can't be ambiguous.
-    const key = `${row.currency}:${category}`;
-    const current = yearlyByCategory.get(key);
-    yearlyByCategory.set(key, {
+    const current = yearlyByCategory.get(category) ?? new Prisma.Decimal(0);
+    yearlyByCategory.set(
       category,
-      currency: row.currency,
-      totalYearlyCents: (current?.totalYearlyCents ?? 0) + yearlyCents(row),
-    });
+      current.plus(homeYearlyCents(row, homeCurrency, rates)),
+    );
   }
 
-  return [...yearlyByCategory.values()]
-    .map((group) => ({
-      category: group.category,
-      currency: group.currency,
-      monthlyAmountCents: monthlyAmountCents(group.totalYearlyCents),
+  return [...yearlyByCategory.entries()]
+    .map(([category, total]) => ({
+      category,
+      monthlyAmountCents: total
+        .div(12)
+        .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+        .toNumber(),
     }))
     .sort(compareCategoryTotals);
+}
+
+function homeYearlyCents(
+  row: AmountRow,
+  homeCurrency: string,
+  rates: Map<string, ConversionRate>,
+): Prisma.Decimal {
+  const yearly = new Prisma.Decimal(yearlyCents(row));
+  if (row.currency === homeCurrency) {
+    return yearly;
+  }
+
+  const conversion = rates.get(row.currency);
+  if (conversion === undefined) {
+    throw new ExchangeRateUnavailableError();
+  }
+
+  return yearly.div(conversion.rate);
+}
+
+function quotesToConvert(rows: AmountRow[], homeCurrency: string): string[] {
+  const quotes = new Set<string>();
+  for (const row of rows) {
+    if (row.currency !== homeCurrency) {
+      quotes.add(row.currency);
+    }
+  }
+  return [...quotes].sort(compareCurrency);
+}
+
+function usedExchangeRates(
+  quotes: string[],
+  rates: Map<string, ConversionRate>,
+): Record<string, UsedExchangeRate> {
+  const exchangeRates: Record<string, UsedExchangeRate> = {};
+
+  for (const quote of quotes) {
+    const conversion = rates.get(quote);
+    if (conversion === undefined) {
+      throw new ExchangeRateUnavailableError();
+    }
+    exchangeRates[quote] = {
+      rate: conversion.rate.toString(),
+      date: conversion.date,
+      source: conversion.source,
+    };
+  }
+
+  return exchangeRates;
 }
 
 function yearlyCents(row: AmountRow): number {
   return row.amountCents * PAYMENTS_PER_YEAR[row.billingCycle];
 }
 
-function monthlyAmountCents(totalYearlyCents: number): number {
-  return Math.round(totalYearlyCents / 12);
-}
-
 function compareCategoryTotals(
   left: CategoryTotal,
   right: CategoryTotal,
 ): number {
-  const byCurrency = compareCurrency(left.currency, right.currency);
-  if (byCurrency !== 0) {
-    return byCurrency;
-  }
   if (left.monthlyAmountCents !== right.monthlyAmountCents) {
     return right.monthlyAmountCents - left.monthlyAmountCents;
   }

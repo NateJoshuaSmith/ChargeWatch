@@ -1,13 +1,29 @@
 import { frankfurterBaseUrl } from "../config/env.js";
+import { prisma } from "../db/prisma.js";
+import { Prisma } from "../generated/prisma/client.js";
 
 const REQUEST_TIMEOUT_MS = 5000;
+const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const CURRENCY_CODE = /^[A-Za-z]{3}$/;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export type ExchangeRates = {
   base: string;
-  date: string;
-  rates: Record<string, number>;
+  rates: Record<string, { rate: number; date: string }>;
   source: "frankfurter";
+};
+
+export type ConversionRate = {
+  rate: Prisma.Decimal; // units of `quote` per 1 unit of `base`
+  date: string; // YYYY-MM-DD, Frankfurter's date for this pair
+  source: "live" | "cache";
+};
+
+type StoredRate = {
+  quote: string;
+  rate: Prisma.Decimal;
+  date: Date;
+  updatedAt: Date;
 };
 
 export class ExchangeRateUnavailableError extends Error {
@@ -91,6 +107,122 @@ export async function getLatestExchangeRates(
   return toExchangeRates(query.base, rows);
 }
 
+export async function getConversionRates(
+  base: string,
+  quotes: string[],
+): Promise<Map<string, ConversionRate>> {
+  if (quotes.length === 0) {
+    return new Map();
+  }
+
+  const cached = await prisma.exchangeRate.findMany({
+    where: { base, quote: { in: quotes } },
+    orderBy: [{ quote: "asc" }, { date: "desc" }],
+    distinct: ["quote"],
+  });
+
+  const now = new Date();
+  if (isFreshCache(cached, quotes, now)) {
+    return toRateMap(cached, "cache");
+  }
+
+  let live: ExchangeRates;
+  try {
+    live = await getLatestExchangeRates({ base, symbols: quotes });
+  } catch (error: unknown) {
+    if (!(error instanceof ExchangeRateUnavailableError)) {
+      throw error;
+    }
+
+    console.warn(
+      "Frankfurter unavailable, using cached exchange rates.",
+      error,
+    );
+    if (hasEveryQuote(cached, quotes)) {
+      return toRateMap(cached, "cache");
+    }
+    throw error;
+  }
+
+  const saved = await saveLiveRates(base, live.rates);
+  if (!hasEveryQuote(saved, quotes)) {
+    throw new ExchangeRateUnavailableError();
+  }
+  return toRateMap(saved, "live");
+}
+
+function isFreshCache(
+  rows: readonly StoredRate[],
+  quotes: readonly string[],
+  now: Date,
+): boolean {
+  if (!hasEveryQuote(rows, quotes)) {
+    return false;
+  }
+
+  const cutoff = now.getTime() - CACHE_MAX_AGE_MS;
+  return rows.every((row) => row.updatedAt.getTime() > cutoff);
+}
+
+function hasEveryQuote(
+  rows: readonly { quote: string }[],
+  quotes: readonly string[],
+): boolean {
+  const found = new Set(rows.map((row) => row.quote));
+  return quotes.every((quote) => found.has(quote));
+}
+
+function toRateMap(
+  rows: readonly StoredRate[],
+  source: ConversionRate["source"],
+): Map<string, ConversionRate> {
+  const rates = new Map<string, ConversionRate>();
+  for (const row of rows) {
+    rates.set(row.quote, toConversionRate(row, source));
+  }
+  return rates;
+}
+
+function toConversionRate(
+  row: StoredRate,
+  source: ConversionRate["source"],
+): ConversionRate {
+  return {
+    rate: row.rate,
+    date: row.date.toISOString().slice(0, 10),
+    source,
+  };
+}
+
+async function saveLiveRates(
+  base: string,
+  rates: ExchangeRates["rates"],
+): Promise<StoredRate[]> {
+  const entries = Object.entries(rates);
+  return prisma.$transaction(
+    entries.map(([quote, entry]) =>
+      prisma.exchangeRate.upsert({
+        where: {
+          base_quote_date: {
+            base,
+            quote,
+            date: new Date(entry.date),
+          },
+        },
+        create: {
+          base,
+          quote,
+          rate: new Prisma.Decimal(String(entry.rate)),
+          date: new Date(entry.date),
+        },
+        update: {
+          rate: new Prisma.Decimal(String(entry.rate)),
+        },
+      }),
+    ),
+  );
+}
+
 function parseRates(body: unknown): FrankfurterRate[] | undefined {
   if (!Array.isArray(body) || body.length === 0) {
     return undefined;
@@ -122,13 +254,14 @@ function parseRate(value: unknown): FrankfurterRate | undefined {
 
   if (
     typeof date !== "string" ||
-    date === "" ||
+    !DATE_ONLY.test(date) ||
     typeof base !== "string" ||
     !CURRENCY_CODE.test(base) ||
     typeof quote !== "string" ||
     !CURRENCY_CODE.test(quote) ||
     typeof rate !== "number" ||
-    !Number.isFinite(rate)
+    !Number.isFinite(rate) ||
+    rate <= 0
   ) {
     return undefined;
   }
@@ -142,19 +275,14 @@ function parseRate(value: unknown): FrankfurterRate | undefined {
 }
 
 function toExchangeRates(base: string, rows: FrankfurterRate[]): ExchangeRates {
-  let date = rows[0]?.date ?? "";
-  const rates: Record<string, number> = {};
+  const rates: Record<string, { rate: number; date: string }> = {};
 
   for (const row of rows) {
-    if (row.date > date) {
-      date = row.date;
-    }
-    rates[row.quote] = row.rate;
+    rates[row.quote] = { rate: row.rate, date: row.date };
   }
 
   return {
     base,
-    date,
     rates,
     source: "frankfurter",
   };
