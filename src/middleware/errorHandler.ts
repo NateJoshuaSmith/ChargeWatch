@@ -9,6 +9,7 @@ type ErrorFields = {
   status?: unknown;
   statusCode?: unknown;
   message?: unknown;
+  type?: unknown;
 };
 
 function isErrorFields(err: unknown): err is ErrorFields {
@@ -40,7 +41,14 @@ function resolveStatus(err: unknown): number {
   return 500;
 }
 
+const INVALID_JSON_MESSAGE = "Invalid JSON body.";
+
 function clientErrorMessage(err: unknown): string {
+  // body-parser's marker for a JSON syntax error.
+  if (isErrorFields(err) && err.type === "entity.parse.failed") {
+    return INVALID_JSON_MESSAGE;
+  }
+
   if (isErrorFields(err) && typeof err.message === "string") {
     return err.message;
   }

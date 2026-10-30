@@ -9,6 +9,9 @@ import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
+// Don't advertise the framework in every response.
+app.disable("x-powered-by");
+
 // Render puts one proxy in front of the app. Trust exactly that hop so req.ip is
 // the real client IP, which the rate limiter needs.
 app.set("trust proxy", 1);
