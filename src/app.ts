@@ -9,6 +9,10 @@ import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
+// Render puts one proxy in front of the app. Trust exactly that hop so req.ip is
+// the real client IP, which the rate limiter needs.
+app.set("trust proxy", 1);
+
 app.use(express.json());
 app.use("/health", healthRoutes);
 app.use("/api/exchange-rates", exchangeRateRoutes);
