@@ -60,6 +60,8 @@ npm ci --include=dev && npm run build && npx prisma migrate deploy
 
 `migrate deploy` applies only the committed migrations and never resets data.
 
+Migrations run before Render switches to the new version, and if the new version fails its health check, the old version keeps running on the migrated database. So keep migrations backward compatible: add new columns or tables first, and remove old ones in a later deploy. (Render's pre-deploy command has the same ordering and is paid-only, so the build command is used.)
+
 Start command: `npm start`
 
 Health check path: `/health`
