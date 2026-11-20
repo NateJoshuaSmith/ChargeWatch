@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { jwtSecret } from "../config/env.js";
 import { prisma } from "../db/prisma.js";
 import { Prisma } from "../generated/prisma/client.js";
+import { Role } from "../generated/prisma/enums.js";
 
 const BCRYPT_COST = 12;
 // Hashed once at startup so unknown emails take the same time as wrong passwords.
@@ -129,6 +130,19 @@ export async function getUserById(id: string) {
   }
 
   return user;
+}
+
+export async function getUserRole(id: string): Promise<Role | null> {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { role: true },
+  });
+
+  if (user === null) {
+    return null;
+  }
+
+  return user.role;
 }
 
 function signToken(userId: string): string {
