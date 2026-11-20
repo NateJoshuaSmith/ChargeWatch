@@ -4,6 +4,7 @@ import exchangeRateRoutes from "./routes/exchangeRate.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import meRoutes from "./routes/me.routes.js";
 import subscriptionRoutes from "./routes/subscription.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -22,6 +23,7 @@ app.use("/api/exchange-rates", exchangeRateRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/me", meRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/admin", adminRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
