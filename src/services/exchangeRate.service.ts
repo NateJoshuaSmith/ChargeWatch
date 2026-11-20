@@ -231,6 +231,11 @@ function parseRates(body: unknown): FrankfurterRate[] | undefined {
   const rows: FrankfurterRate[] = [];
 
   for (const item of body) {
+    // Frankfurter also returns crypto tokens with longer codes, and we only support 3-letter currency codes.
+    if (isUnsupportedQuote(item)) {
+      continue;
+    }
+
     const row = parseRate(item);
     if (row === undefined) {
       return undefined;
@@ -238,7 +243,20 @@ function parseRates(body: unknown): FrankfurterRate[] | undefined {
     rows.push(row);
   }
 
+  if (rows.length === 0) {
+    return undefined;
+  }
+
   return rows;
+}
+
+function isUnsupportedQuote(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const quote = (value as Record<string, unknown>).quote;
+  return typeof quote === "string" && !CURRENCY_CODE.test(quote);
 }
 
 function parseRate(value: unknown): FrankfurterRate | undefined {
