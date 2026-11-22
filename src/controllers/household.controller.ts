@@ -66,7 +66,7 @@ function readId(value: unknown, fieldName = "id"): string {
     throw badRequest(`${fieldName} must be a valid UUID.`);
   }
 
-  return value;
+  return value.toLowerCase();
 }
 
 function readCreateBody(body: unknown): string {
