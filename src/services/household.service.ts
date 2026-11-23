@@ -7,6 +7,10 @@ import {
   toPublicSubscription,
   type PublicSubscription,
 } from "./subscription.service.js";
+import {
+  emitToHousehold,
+  removeUserFromHousehold,
+} from "./realtime.service.js";
 
 const INVITE_CODE_BYTES = 6;
 const MAX_INVITE_CODE_TRIES = 3;
@@ -199,6 +203,8 @@ export async function joinHousehold(
     throw error;
   }
 
+  emitToHousehold(household.id, "member:joined", { userId });
+
   return { household, role: HouseholdRole.MEMBER };
 }
 
@@ -331,6 +337,9 @@ export async function removeMember(
     }
     throw error;
   }
+
+  emitToHousehold(householdId, "member:removed", { userId: targetUserId });
+  removeUserFromHousehold(targetUserId, householdId);
 }
 
 export async function assertMember(
@@ -401,6 +410,8 @@ export async function deleteHouseholdSubscription(
     }
     throw error;
   }
+
+  emitToHousehold(householdId, "subscription:deleted", { id: subscriptionId });
 }
 
 function generateInviteCode(): string {

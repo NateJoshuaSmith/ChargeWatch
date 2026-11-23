@@ -12,6 +12,7 @@ import {
   type ConversionRate,
 } from "./exchangeRate.service.js";
 import { assertMember } from "./household.service.js";
+import { emitToHousehold } from "./realtime.service.js";
 
 // Amounts are converted to the home currency, summed per category, then divided by 12 and rounded once.
 const PAYMENTS_PER_YEAR: Record<BillingCycle, number> = {
@@ -243,7 +244,15 @@ export async function createSubscription(
     select: SUBSCRIPTION_SELECT,
   });
 
-  return toPublicSubscription(row);
+  const subscription = toPublicSubscription(row);
+
+  if (subscription.householdId !== null) {
+    emitToHousehold(subscription.householdId, "subscription:created", {
+      subscription,
+    });
+  }
+
+  return subscription;
 }
 
 export async function updateSubscription(

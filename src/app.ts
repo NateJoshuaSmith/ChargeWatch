@@ -19,6 +19,7 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
 app.use(express.json());
+app.use(express.static("public"));
 app.use("/health", healthRoutes);
 app.use("/api/exchange-rates", exchangeRateRoutes);
 app.use("/api/auth", authRoutes);
