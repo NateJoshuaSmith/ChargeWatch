@@ -85,9 +85,31 @@ function parseJwtSecret(rawSecret: string | undefined): string {
   return trimmed;
 }
 
+export type TwilioConfig = {
+  accountSid: string;
+  authToken: string;
+  fromNumber: string;
+  trialTemplate: string | null;
+};
+
+function parseTwilioConfig(): TwilioConfig | null {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim() ?? "";
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() ?? "";
+  const fromNumber = process.env.TWILIO_FROM_NUMBER?.trim() ?? "";
+  const trialTemplateRaw = process.env.TWILIO_TRIAL_TEMPLATE?.trim() ?? "";
+  const trialTemplate = trialTemplateRaw === "" ? null : trialTemplateRaw;
+
+  if (accountSid === "" || authToken === "" || fromNumber === "") {
+    return null;
+  }
+
+  return { accountSid, authToken, fromNumber, trialTemplate };
+}
+
 export const port = parsePort(process.env.PORT);
 export const databaseUrl = parseDatabaseUrl(process.env.DATABASE_URL);
 export const jwtSecret = parseJwtSecret(process.env.JWT_SECRET);
 export const frankfurterBaseUrl = parseFrankfurterBaseUrl(
   process.env.FRANKFURTER_BASE_URL,
 );
+export const twilioConfig = parseTwilioConfig();

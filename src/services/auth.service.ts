@@ -16,6 +16,7 @@ const PUBLIC_USER_SELECT = {
   email: true,
   role: true,
   homeCurrency: true,
+  phoneNumber: true,
   createdAt: true,
 } as const;
 
@@ -93,6 +94,7 @@ export async function loginUser(email: string, password: string) {
       email: stored.email,
       role: stored.role,
       homeCurrency: stored.homeCurrency,
+      phoneNumber: stored.phoneNumber,
       createdAt: stored.createdAt,
     },
     token: signToken(stored.id),
@@ -130,6 +132,24 @@ export async function getUserById(id: string) {
   }
 
   return user;
+}
+
+export async function updatePhoneNumber(id: string, phoneNumber: string) {
+  try {
+    return await prisma.user.update({
+      where: { id },
+      data: { phoneNumber },
+      select: PUBLIC_USER_SELECT,
+    });
+  } catch (error: unknown) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw new UserNotFoundError();
+    }
+    throw error;
+  }
 }
 
 export async function getUserRole(id: string): Promise<Role | null> {

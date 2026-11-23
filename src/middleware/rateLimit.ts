@@ -4,6 +4,8 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LIMIT = 10;
 const REGISTER_WINDOW_MS = 60 * 60 * 1000;
 const REGISTER_LIMIT = 5;
+const REMINDER_WINDOW_MS = 15 * 60 * 1000;
+const REMINDER_LIMIT = 5;
 
 export class TooManyRequestsError extends Error {
   readonly statusCode = 429;
@@ -26,6 +28,14 @@ export const loginLimiter = rateLimit({
 export const registerLimiter = rateLimit({
   windowMs: REGISTER_WINDOW_MS,
   limit: REGISTER_LIMIT,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  handler: (_req, _res, next) => next(new TooManyRequestsError()),
+});
+
+export const reminderLimiter = rateLimit({
+  windowMs: REMINDER_WINDOW_MS,
+  limit: REMINDER_LIMIT,
   standardHeaders: "draft-8",
   legacyHeaders: false,
   handler: (_req, _res, next) => next(new TooManyRequestsError()),

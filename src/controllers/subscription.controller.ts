@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { BillingCycle, SubscriptionStatus } from "../generated/prisma/enums.js";
+import { sendRenewalReminder } from "../services/reminder.service.js";
 import type {
   CreateSubscriptionInput,
   UpdateSubscriptionInput,
@@ -101,6 +102,16 @@ export async function deleteSubscription(
   const id = readId(req.params.id);
   await subscriptions.deleteSubscription(userId, id);
   res.status(204).end();
+}
+
+export async function remindSubscription(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = requireUserId(req);
+  const id = readId(req.params.id);
+  const result = await sendRenewalReminder(userId, id);
+  res.status(201).json(result);
 }
 
 function requireUserId(req: Request): string {
