@@ -19,7 +19,18 @@ const MAX_CATEGORY_LENGTH = 50;
 const MAX_AMOUNT_CENTS = 100000000;
 const DEFAULT_CURRENCY = "USD";
 
-const ALLOWED_FIELDS = new Set<string>([
+const CREATE_FIELDS = new Set<string>([
+  "name",
+  "amountCents",
+  "currency",
+  "billingCycle",
+  "nextRenewalDate",
+  "category",
+  "status",
+  "householdId",
+]);
+
+const UPDATE_FIELDS = new Set<string>([
   "name",
   "amountCents",
   "currency",
@@ -109,7 +120,7 @@ function readId(value: unknown): string {
 }
 
 function readCreateBody(body: unknown): CreateSubscriptionInput {
-  const record = readBody(body);
+  const record = readBody(body, CREATE_FIELDS);
 
   return {
     name: readName(record.name),
@@ -126,11 +137,14 @@ function readCreateBody(body: unknown): CreateSubscriptionInput {
     ...(record.status !== undefined
       ? { status: readStatus(record.status) }
       : {}),
+    ...(record.householdId !== undefined
+      ? { householdId: readHouseholdId(record.householdId) }
+      : {}),
   };
 }
 
 function readUpdateBody(body: unknown): UpdateSubscriptionInput {
-  const record = readBody(body);
+  const record = readBody(body, UPDATE_FIELDS);
   const input: UpdateSubscriptionInput = {};
 
   if (record.name !== undefined) {
@@ -162,18 +176,29 @@ function readUpdateBody(body: unknown): UpdateSubscriptionInput {
   return input;
 }
 
-function readBody(body: unknown): Record<string, unknown> {
+function readBody(
+  body: unknown,
+  allowedFields: Set<string>,
+): Record<string, unknown> {
   if (!isRecord(body)) {
     throw badRequest("Request body must be an object.");
   }
 
   for (const key of Object.keys(body)) {
-    if (!ALLOWED_FIELDS.has(key)) {
+    if (!allowedFields.has(key)) {
       throw badRequest(`Unknown field: ${key}.`);
     }
   }
 
   return body;
+}
+
+function readHouseholdId(value: unknown): string {
+  if (typeof value !== "string" || !UUID.test(value)) {
+    throw badRequest("householdId must be a valid UUID.");
+  }
+
+  return value;
 }
 
 function readName(value: unknown): string {
