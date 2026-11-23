@@ -53,6 +53,34 @@ export async function removeMember(req: Request, res: Response): Promise<void> {
   res.status(204).end();
 }
 
+export async function listHouseholdSubscriptions(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = requireUserId(req);
+  const householdId = readId(req.params.id, "id");
+  const result = await households.listHouseholdSubscriptions(
+    userId,
+    householdId,
+  );
+  res.status(200).json({ subscriptions: result });
+}
+
+export async function deleteHouseholdSubscription(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = requireUserId(req);
+  const householdId = readId(req.params.id, "id");
+  const subscriptionId = readId(req.params.subscriptionId, "subscriptionId");
+  await households.deleteHouseholdSubscription(
+    userId,
+    householdId,
+    subscriptionId,
+  );
+  res.status(204).end();
+}
+
 function requireUserId(req: Request): string {
   if (req.userId === undefined) {
     throw unauthorized("Authentication required.");

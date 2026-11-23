@@ -2,6 +2,11 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "../db/prisma.js";
 import { Prisma } from "../generated/prisma/client.js";
 import { HouseholdRole } from "../generated/prisma/enums.js";
+import {
+  SUBSCRIPTION_SELECT,
+  toPublicSubscription,
+  type PublicSubscription,
+} from "./subscription.service.js";
 
 const INVITE_CODE_BYTES = 6;
 const MAX_INVITE_CODE_TRIES = 3;
@@ -59,6 +64,22 @@ export class MemberNotFoundError extends Error {
     this.name = "MemberNotFoundError";
   }
 }
+
+export class SharedSubscriptionNotFoundError extends Error {
+  readonly statusCode = 404;
+
+  constructor() {
+    super("Subscription not found.");
+    this.name = "SharedSubscriptionNotFoundError";
+  }
+}
+
+export type HouseholdSubscription = PublicSubscription & {
+  addedBy: {
+    userId: string;
+    email: string;
+  };
+};
 
 export type CreatedHousehold = {
   household: {
@@ -307,6 +328,76 @@ export async function removeMember(
   } catch (error: unknown) {
     if (isRecordNotFound(error)) {
       throw new MemberNotFoundError();
+    }
+    throw error;
+  }
+}
+
+export async function assertMember(
+  userId: string,
+  householdId: string,
+): Promise<HouseholdRole> {
+  const membership = await prisma.membership.findUnique({
+    where: {
+      userId_householdId: { userId, householdId },
+    },
+    select: { role: true },
+  });
+
+  if (membership === null) {
+    throw new HouseholdNotFoundError();
+  }
+
+  return membership.role;
+}
+
+export async function listHouseholdSubscriptions(
+  userId: string,
+  householdId: string,
+): Promise<HouseholdSubscription[]> {
+  await assertMember(userId, householdId);
+
+  const rows = await prisma.subscription.findMany({
+    where: { householdId },
+    select: {
+      ...SUBSCRIPTION_SELECT,
+      user: {
+        select: {
+          id: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: [{ nextRenewalDate: "asc" }, { name: "asc" }],
+  });
+
+  return rows.map((row) => ({
+    ...toPublicSubscription(row),
+    addedBy: {
+      userId: row.user.id,
+      email: row.user.email,
+    },
+  }));
+}
+
+export async function deleteHouseholdSubscription(
+  userId: string,
+  householdId: string,
+  subscriptionId: string,
+): Promise<void> {
+  const role = await assertMember(userId, householdId);
+
+  if (role !== HouseholdRole.OWNER) {
+    throw new NotHouseholdOwnerError();
+  }
+
+  try {
+    await prisma.subscription.delete({
+      where: { id: subscriptionId, householdId },
+    });
+  } catch (error: unknown) {
+    if (isRecordNotFound(error)) {
+      throw new SharedSubscriptionNotFoundError();
     }
     throw error;
   }

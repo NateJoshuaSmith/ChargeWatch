@@ -11,6 +11,7 @@ import {
   getConversionRates,
   type ConversionRate,
 } from "./exchangeRate.service.js";
+import { assertMember } from "./household.service.js";
 
 // Amounts are converted to the home currency, summed per category, then divided by 12 and rounded once.
 const PAYMENTS_PER_YEAR: Record<BillingCycle, number> = {
@@ -27,7 +28,7 @@ const COUNTED_STATUSES: SubscriptionStatus[] = [
 const RENEWAL_WINDOW_DAYS = 30;
 const UNCATEGORIZED = "Uncategorized";
 
-const SUBSCRIPTION_SELECT = {
+export const SUBSCRIPTION_SELECT = {
   id: true,
   name: true,
   amountCents: true,
@@ -37,6 +38,7 @@ const SUBSCRIPTION_SELECT = {
   category: true,
   status: true,
   source: true,
+  householdId: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -51,6 +53,7 @@ export type PublicSubscription = {
   category: string | null;
   status: SubscriptionStatus;
   source: SubscriptionSource;
+  householdId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -63,6 +66,7 @@ export type CreateSubscriptionInput = {
   nextRenewalDate: Date;
   category?: string | null;
   status?: SubscriptionStatus;
+  householdId?: string;
 };
 
 export type UpdateSubscriptionInput = {
@@ -112,6 +116,7 @@ type SubscriptionRow = {
   category: string | null;
   status: SubscriptionStatus;
   source: SubscriptionSource;
+  householdId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -217,6 +222,10 @@ export async function createSubscription(
   userId: string,
   input: CreateSubscriptionInput,
 ): Promise<PublicSubscription> {
+  if (input.householdId !== undefined) {
+    await assertMember(userId, input.householdId);
+  }
+
   const row = await prisma.subscription.create({
     data: {
       userId,
@@ -227,6 +236,9 @@ export async function createSubscription(
       nextRenewalDate: input.nextRenewalDate,
       ...(input.category !== undefined ? { category: input.category } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.householdId !== undefined
+        ? { householdId: input.householdId }
+        : {}),
     },
     select: SUBSCRIPTION_SELECT,
   });
@@ -260,7 +272,7 @@ export async function deleteSubscription(
 ): Promise<void> {
   try {
     await prisma.subscription.delete({
-      where: { id, userId },
+      where: { id, userId, householdId: null },
     });
   } catch (error: unknown) {
     if (isRecordNotFound(error)) {
@@ -270,7 +282,7 @@ export async function deleteSubscription(
   }
 }
 
-function toPublicSubscription(row: SubscriptionRow): PublicSubscription {
+export function toPublicSubscription(row: SubscriptionRow): PublicSubscription {
   return {
     id: row.id,
     name: row.name,
@@ -281,6 +293,7 @@ function toPublicSubscription(row: SubscriptionRow): PublicSubscription {
     category: row.category,
     status: row.status,
     source: row.source,
+    householdId: row.householdId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

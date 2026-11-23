@@ -1,9 +1,11 @@
 import { Router } from "express";
 import {
   createHousehold,
+  deleteHouseholdSubscription,
   getHousehold,
   joinHousehold,
   listHouseholds,
+  listHouseholdSubscriptions,
   removeMember,
 } from "../controllers/household.controller.js";
 import { authenticate } from "../middleware/authenticate.js";
@@ -16,6 +18,11 @@ router.use(authenticate);
 router.get("/", listHouseholds);
 // Registered before /:id so "join" is not captured as an id.
 router.post("/join", joinHousehold);
+router.get("/:id/subscriptions", listHouseholdSubscriptions);
+router.delete(
+  "/:id/subscriptions/:subscriptionId",
+  deleteHouseholdSubscription,
+);
 router.get("/:id", getHousehold);
 router.post("/", createHousehold);
 router.delete("/:id/members/:userId", removeMember);
