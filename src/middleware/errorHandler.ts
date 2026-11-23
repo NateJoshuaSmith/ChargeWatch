@@ -73,7 +73,7 @@ export const errorHandler: ErrorRequestHandler = (
     console.error(err);
 
     if (
-      status === 502 &&
+      (status === 502 || status === 503) &&
       isErrorFields(err) &&
       typeof err.message === "string"
     ) {

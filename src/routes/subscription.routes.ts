@@ -5,9 +5,11 @@ import {
   getSubscription,
   getSubscriptionSummary,
   listSubscriptions,
+  remindSubscription,
   updateSubscription,
 } from "../controllers/subscription.controller.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { reminderLimiter } from "../middleware/rateLimit.js";
 
 const router = Router();
 
@@ -19,6 +21,7 @@ router.get("/", listSubscriptions);
 router.get("/summary", getSubscriptionSummary);
 router.get("/:id", getSubscription);
 router.post("/", createSubscription);
+router.post("/:id/remind", reminderLimiter, remindSubscription);
 router.patch("/:id", updateSubscription);
 router.delete("/:id", deleteSubscription);
 
