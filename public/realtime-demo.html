@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChargeWatch Realtime Demo</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      label {
+        display: block;
+        margin-top: 0.75rem;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 0.25rem;
+      }
+      button {
+        margin-top: 1rem;
+      }
+      #log {
+        margin-top: 1.5rem;
+        white-space: pre-wrap;
+        border: 1px solid #ccc;
+        padding: 0.75rem;
+        min-height: 12rem;
+        font-family: ui-monospace, monospace;
+        font-size: 0.875rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ChargeWatch Realtime Demo</h1>
+    <label>
+      JWT
+      <input id="token" type="text" autocomplete="off" />
+    </label>
+    <label>
+      Household ID
+      <input id="householdId" type="text" autocomplete="off" />
+    </label>
+    <button id="connect" type="button">Connect</button>
+    <div id="log"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const tokenInput = document.getElementById("token");
+      const householdIdInput = document.getElementById("householdId");
+      const connectButton = document.getElementById("connect");
+      const logEl = document.getElementById("log");
+
+      let socket = null;
+
+      function appendLog(message) {
+        const line = document.createElement("div");
+        line.textContent = "[" + new Date().toISOString() + "] " + message;
+        logEl.appendChild(line);
+      }
+
+      function listenForHouseholdEvents(activeSocket) {
+        const events = [
+          "subscription:created",
+          "subscription:deleted",
+          "member:joined",
+          "member:removed",
+        ];
+
+        for (const eventName of events) {
+          activeSocket.on(eventName, (payload) => {
+            appendLog(eventName + " " + JSON.stringify(payload));
+          });
+        }
+      }
+
+      connectButton.addEventListener("click", () => {
+        const token = tokenInput.value.trim();
+        const householdId = householdIdInput.value.trim();
+
+        if (socket !== null) {
+          socket.disconnect();
+          socket = null;
+        }
+
+        appendLog("Connecting…");
+
+        socket = io({ auth: { token } });
+
+        socket.on("connect_error", (error) => {
+          appendLog("connect_error: " + error.message);
+        });
+
+        socket.on("connect", () => {
+          appendLog("Connected");
+          listenForHouseholdEvents(socket);
+
+          socket.emit("household:join", { householdId }, (ack) => {
+            appendLog("household:join ack " + JSON.stringify(ack));
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
