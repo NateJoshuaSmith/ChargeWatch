@@ -272,7 +272,7 @@ export async function deleteSubscription(
 ): Promise<void> {
   try {
     await prisma.subscription.delete({
-      where: { id, userId },
+      where: { id, userId, householdId: null },
     });
   } catch (error: unknown) {
     if (isRecordNotFound(error)) {
